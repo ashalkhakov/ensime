@@ -20,6 +20,57 @@
 ;;     MA 02111-1307, USA.
 
 
+;;; Cygwin compatibility
+
+(defun ensime-config-standard-in (conf)
+  "Walk over configuration file and convert standard file names into Emacs-specific file names.
+
+Input list is destructively modified and returned."
+  (let ((li conf))
+    (progn
+      (while li
+	(let ((a (car li)))
+	  (setq li (cdr li))
+	  (let ((b (car li)))
+	    (cond
+	     ((equal a :sources) (setcar li (mapcar 'ensime-standard-file-name-in b)))
+	     ((equal a :compile-jars) (setcar li (mapcar 'ensime-standard-file-name-in b)))
+	     ((equal a :compile-deps) (setcar li (mapcar 'ensime-standard-file-name-in b)))
+	     ((equal a :runtime-deps) (setcar li (mapcar 'ensime-standard-file-name-in b)))
+	     ((equal a :test-deps) (setcar li (mapcar 'ensime-standard-file-name-in b)))
+	     ((equal a :source-roots) (setcar li (mapcar 'ensime-standard-file-name-in b)))
+	     ((equal a :target) (setcar li (ensime-standard-file-name-in b)))
+	     ((equal a :test-target) (setcar li (ensime-standard-file-name-in b)))
+	     ((equal a :subprojects) (setcar li (mapcar 'ensime-config-standard-in b)))
+	     ((equal a :root-dir) (setcar li (ensime-standard-file-name-in b))))
+	    (setq li (cdr li)))))
+      conf)))
+
+(defun ensime-config-standard-out (conf)
+  "Walk over configuration file and convert Emacs-specific file names to standard file names.
+
+Input list is destructively modified and returned."
+  (let ((li conf))
+    (progn
+      (while li
+	(let ((a (car li)))
+	  (setq li (cdr li))
+	  (let ((b (car li)))
+	    (cond
+	     ((equal a :sources) (setcar li (mapcar 'ensime-standard-file-name-out b)))
+	     ((equal a :compile-jars) (setcar li (mapcar 'ensime-standard-file-name-out b)))
+	     ((equal a :compile-deps) (setcar li (mapcar 'ensime-standard-file-name-out b)))
+	     ((equal a :runtime-deps) (setcar li (mapcar 'ensime-standard-file-name-out b)))
+	     ((equal a :test-deps) (setcar li (mapcar 'ensime-standard-file-name-out b)))
+	     ((equal a :source-roots) (setcar li (mapcar 'ensime-standard-file-name-out b)))
+	     ((equal a :target) (setcar li (ensime-standard-file-name-out b)))
+	     ((equal a :test-target) (setcar li (ensime-standard-file-name-out b)))
+	     ((equal a :subprojects) (setcar li (mapcar 'ensime-config-standard-out b)))
+	     ((equal a :root-dir) (setcar li (ensime-standard-file-name-out b))))
+	    (setq li (cdr li)))))
+    conf)))
+
+;;;
 
 (defvar ensime-config-file-name ".ensime"
   "The default file name for ensime project configurations.")
@@ -173,7 +224,6 @@
 
 (defun ensime-config-build-custom (root)
   (let ((conf '()))
-
     (ensime-set-key conf :project-name
                     (ensime-config-read-project-name))
 
@@ -227,7 +277,7 @@
 		  "ensime-config-gen. Feel free to customize "
 		  "its contents manually.\n\n"))
   (insert "(\n\n")
-  (let ((c conf))
+  (let ((c (ensime-config-standard-out conf)))
     (while c
       (let ((a (pop c))
 	    (b (pop c)))
@@ -236,7 +286,7 @@
 	(insert (format "%S" b))
 	(insert "\n\n")
 	)))
-  (insert ")\n"))
+      (insert ")\n"))
 
 
 (defun ensime-config-guess-type (root)
@@ -317,7 +367,6 @@
 
       )))
 
-
 (defun ensime-config-load (file-name)
   "Load and parse a project config file. Return the resulting plist.
    The :root-dir setting will be deduced from the location of the project file."
@@ -334,6 +383,7 @@
 		  (error "Error reading configuration file, %s: %s" src error)
 		  ))
 	       )))
+	(setq config (ensime-config-standard-in config))
 	;; We use the project file's location as the project root.
 	(ensime-set-key config :root-dir dir)
 	(ensime-config-maybe-set-active-subproject config)

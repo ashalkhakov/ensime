@@ -95,7 +95,11 @@ fi
 
 BOOTCLASSPATH=<RUNTIME_BOOTCLASSPATH>
 CLASSPATH=<RUNTIME_CLASSPATH>
-
+if [ "$(expr substr $(uname -s) 1 6)" == "CYGWIN" ] ; then
+    BOOTCLASSPATH=$(cygpath -w -p "$BOOTCLASSPATH")
+    CLASSPATH=$(cygpath -w -p "$CLASSPATH")
+    PORT_FILE=$(cygpath -w "$PORT_FILE")
+fi
 CMD="${JDK}/bin/java -Xbootclasspath/a:${BOOTCLASSPATH} -classpath ${CLASSPATH} \
     ${ENSIME_JVM_ARGS} org.ensime.server.Server ${PORT_FILE}"
 

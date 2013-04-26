@@ -53,7 +53,7 @@
 	(t
 	 (ensime-refactor-prepare
 	  'organizeImports
-	  `(file ,buffer-file-name)))))
+	  `(file ,(ensime-standard-buffer-file-name))))))
 
 (defun ensime-refactor-organize-java-imports ()
   "Sort all import statements lexicographically."
@@ -82,7 +82,7 @@
 			 (read-string (format "Rename '%s' to: " old-name)))))
 	  (ensime-refactor-prepare
 	   'rename
-	   `(file ,buffer-file-name
+	   `(file ,(ensime-standard-buffer-file-name)
 		  start ,(- start ensime-ch-fix)
 		  end ,(- end ensime-ch-fix)
 		  newName ,name)))
@@ -98,7 +98,7 @@
 	       (end (plist-get sym :end)))
 	  (ensime-refactor-prepare
 	   'inlineLocal
-	   `(file ,buffer-file-name
+	   `(file ,(ensime-standard-buffer-file-name)
 		  start ,(- start ensime-ch-fix)
 		  end ,(- end ensime-ch-fix))))
       (message "Please place cursor on a local value."))))
@@ -110,7 +110,7 @@
   (let* ((name (read-string "Name of method: ")))
     (ensime-refactor-prepare
      'extractMethod
-     `(file ,buffer-file-name
+     `(file ,(ensime-standard-buffer-file-name)
 	    start ,(- (mark) ensime-ch-fix)
 	    end ,(- (point) ensime-ch-fix)
 	    methodName ,name))))
@@ -122,7 +122,7 @@
   (let* ((name (read-string "Name of local value: ")))
     (ensime-refactor-prepare
      'extractLocal
-     `(file ,buffer-file-name
+     `(file ,(ensime-standard-buffer-file-name)
 	    start ,(- (mark) ensime-ch-fix)
 	    end ,(- (point) ensime-ch-fix)
 	    name ,name))))
@@ -135,7 +135,7 @@
              (read-string "Qualified name of type to import: "))))
     (let ((result (ensime-refactor-prepare
                    'addImport
-                   `(file ,buffer-file-name
+                   `(file ,(ensime-standard-buffer-file-name)
                           qualifiedName ,qualified-name) t t
                           )))
       (ensime-refactor-handle-result result))))
@@ -183,7 +183,12 @@
 
 
 (defun ensime-refactor-handle-result (result)
-  (let ((touched (plist-get result :touched-files)))
+  (let ((touched (mapcar
+		  (lambda (inp)
+		    (cond ((stringp inp) (ensime-standard-file-name-in inp))
+			  ((listp inp) (list (ensime-standard-file-name-in (car inp)) (ensime-standard-file-name-in (cadr inp))))))
+
+		  (plist-get result :touched-files))))
     (ensime-revert-visited-files touched t)
     (ensime-event-sig :refactor-done touched)
     ))

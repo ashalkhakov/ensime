@@ -59,7 +59,11 @@
 
 (defun ensime-undo-exec (id)
   (let* ((result (ensime-rpc-exec-undo id))
-	 (touched (plist-get result :touched-files)))
+	 (touched (mapcar
+		   (lambda (inp)
+		     (cond ((stringp inp) (ensime-standard-file-name-in inp))
+			   ((listp inp) (list (ensime-standard-file-name-in (car inp)) (ensime-standard-file-name-in (cadr inp))))))
+		   (plist-get result :touched-files))))
     (ensime-revert-visited-files touched t)))
 
 

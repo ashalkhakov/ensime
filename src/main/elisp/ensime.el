@@ -151,6 +151,40 @@
   "Single character offset to convert between emacs and
  0-based character indexing.")
 
+;;;;; Cygwin compatibility
+
+(defun ensime-standard-file-name-in (path)
+  "Convert filename in OS-standard format to Emacs-specific format.
+
+At the moment, if Emacs is Cygwinized then function will convert
+Windows-style path to Unix-style path; otherwise, leave the path
+as-is.
+
+This function is meant to support the interaction of ENSIME running under Cygwin Emacs
+with Java on Windows."
+  (if (eq system-type 'cygwin)
+      (replace-regexp-in-string "\n" ""
+				(shell-command-to-string (concat "cygpath -u '" path "'")))
+    (path)))
+
+(defun ensime-standard-file-name-out (path)
+  "Convert filename in Emacs-specific format to OS-standard filename.
+
+At the moment, if Emacs is Cygwinized then function will convert
+Unix-style path to Windows-style path; otherwise, leave the path
+as-is.
+
+This function is meant to support the interaction of ENSIME running under Cygwin Emacs
+with Java on Windows."
+  (if (eq system-type 'cygwin)
+      (replace-regexp-in-string "\n" ""
+				(shell-command-to-string (concat "cygpath -w '" path "'")))
+    (path)))
+
+(defun ensime-standard-buffer-file-name ()
+  "buffer-file-name that is native to the OS"
+  (ensime-standard-file-name-out buffer-file-name))
+
 ;;;;; ensime-mode
 
 (defgroup ensime-mode nil
@@ -525,7 +559,7 @@ Do not show 'Writing..' message."
        ((and ident ensime-tooltip-type-hints)
         (progn
           (ensime-eval-async
-           `(swank:type-at-point ,buffer-file-name ,point)
+           `(swank:type-at-point ,(ensime-standard-buffer-file-name) ,point)
            #'(lambda (type)
                (when type
                  (let ((msg (ensime-type-full-name-with-args type)))
@@ -607,7 +641,7 @@ Do not show 'Writing..' message."
 	     (dir (or (plist-get config :server-root)
 		      ensime-default-server-root))
 	     (buffer ensime-server-buffer-name)
-	     (args (list (ensime-swank-port-file))))
+	     (args (list (ensime-standard-file-name-out (ensime-swank-port-file)))))
 
 	(ensime-delete-swank-port-file 'quiet)
 	(let ((server-proc (ensime-maybe-start-server cmd args env dir buffer)))
@@ -1785,15 +1819,17 @@ If PROCESS is not specified, `ensime-connection' is used.
 (defun ensime-init-project (conn config)
   "Send configuration to the server process. Setup handler for
  project info that the server will return."
-  (ensime-eval-async `(swank:init-project ,config)
+  (let ((info (copy-list config)))
+    (setq info (ensime-config-standard-out info))
+    (ensime-eval-async `(swank:init-project ,info)
 		     (ensime-curry #'ensime-handle-project-info
-				   conn)))
-
+				   conn))))
 
 (defun ensime-handle-project-info (conn info)
   "Handle result of init-project rpc call. Install project information
 computed on server into the local config structure."
   (let* ((config (ensime-config conn)))
+    (setq info (ensime-config-standard-in info))
     (setf config (plist-put config :project-name
 			    (or
 			     (plist-get config :project-name)
@@ -2446,7 +2482,7 @@ any buffer visiting the given file."
 	 (mapcar
 	  (lambda (ch)
 	    (list
-	     :file (plist-get ch :file)
+	     :file (ensime-standard-file-name-in (plist-get ch :file))
 	     :from (plist-get ch :from)
 	     :to (plist-get ch :to)
 	     :edits (list
@@ -2970,7 +3006,7 @@ any buffer visiting the given file."
 
 (defun ensime-rpc-method-bytecode (file line)
   (ensime-eval
-   `(swank:method-bytecode ,file ,line)))
+   `(swank:method-bytecode ,(ensime-standard-file-name-out file) ,line)))
 
 (defun ensime-rpc-debug-active-vm ()
   (ensime-eval
@@ -3038,11 +3074,11 @@ any buffer visiting the given file."
 
 (defun ensime-rpc-debug-set-break (file line)
   (ensime-eval
-   `(swank:debug-set-break ,file ,line)))
+   `(swank:debug-set-break ,(ensime-standard-file-name-out file) ,line)))
 
 (defun ensime-rpc-debug-clear-break (file line)
   (ensime-eval
-   `(swank:debug-clear-break ,file ,line)))
+   `(swank:debug-clear-break ,(ensime-standard-file-name-out file) ,line)))
 
 (defun ensime-rpc-debug-clear-all-breaks ()
   (ensime-eval
@@ -3050,7 +3086,7 @@ any buffer visiting the given file."
 
 (defun ensime-rpc-symbol-at-point ()
   (ensime-eval
-   `(swank:symbol-at-point ,buffer-file-name ,(ensime-computed-point))))
+   `(swank:symbol-at-point ,(ensime-standard-buffer-file-name) ,(ensime-computed-point))))
 
 (defun ensime-rpc-repl-config ()
   "Get the configuration information needed to launch the scala interpreter
@@ -3059,10 +3095,10 @@ with the current project's dependencies loaded. Returns a property list."
    `(swank:repl-config)))
 
 (defun ensime-rpc-remove-file (file-name)
-  (ensime-eval `(swank:remove-file ,file-name)))
+  (ensime-eval `(swank:remove-file ,(ensime-standard-file-name-out file-name))))
 
 (defun ensime-rpc-async-typecheck-file (file-name continue)
-  (ensime-eval-async `(swank:typecheck-file ,file-name) continue))
+  (ensime-eval-async `(swank:typecheck-file ,(ensime-standard-file-name-out file-name)) continue))
 
 (defun ensime-rpc-async-typecheck-all (continue)
   (ensime-eval-async `(swank:typecheck-all) continue))
@@ -3071,15 +3107,17 @@ with the current project's dependencies loaded. Returns a property list."
   (ensime-eval-async `(swank:builder-init) continue))
 
 (defun ensime-rpc-async-builder-update (file-names continue)
-  (ensime-eval-async `(swank:builder-update-files ,file-names) continue))
+  (ensime-eval-async `(swank:builder-update-files
+		       ,(mapcar 'ensime-standard-file-name-out file-names)) continue))
 
 (defun ensime-rpc-async-format-files (file-names continue)
-  (ensime-eval-async `(swank:format-source ,file-names) continue))
+  (ensime-eval-async `(swank:format-source
+		       ,(mapcar 'ensime-standard-file-name-out file-names)) continue))
 
 (defun ensime-rpc-expand-selection (file-name start end)
   (ensime-internalize-offset-fields
    (ensime-eval `(swank:expand-selection
-		  ,file-name
+		  ,(ensime-standard-file-name-out file-name)
 		  ,(ensime-externalize-offset start)
 		  ,(ensime-externalize-offset end)))
    :start
@@ -3090,7 +3128,7 @@ with the current project's dependencies loaded. Returns a property list."
 (defun ensime-rpc-completions-at-point (&optional max-results case-sens)
   (ensime-eval
    `(swank:completions
-     ,buffer-file-name
+     ,(ensime-standard-buffer-file-name)
      ,(ensime-computed-point)
      ,(or max-results 0)
      ,case-sens
@@ -3100,7 +3138,7 @@ with the current project's dependencies loaded. Returns a property list."
 (defun ensime-rpc-import-suggestions-at-point (names max-results)
   (ensime-eval
    `(swank:import-suggestions
-     ,buffer-file-name
+     ,(ensime-standard-buffer-file-name)
      ,(ensime-computed-point)
      ,names
      ,max-results
@@ -3117,13 +3155,14 @@ with the current project's dependencies loaded. Returns a property list."
 (defun ensime-rpc-uses-of-symbol-at-point ()
   (ensime-eval
    `(swank:uses-of-symbol-at-point
-     ,buffer-file-name
+     ,(ensime-standard-buffer-file-name)
      ,(ensime-computed-point)
      )))
 
 (defun ensime-rpc-package-member-completions (path &optional prefix)
   (ensime-eval
-   `(swank:package-member-completion ,path ,(or prefix ""))))
+   ;; AS: TODO: prefix?
+   `(swank:package-member-completion ,(ensime-standard-file-name-out path) ,(or prefix ""))))
 
 (defun ensime-rpc-get-type-by-id (id)
   (if (and (integerp id) (> id -1))
@@ -3137,19 +3176,19 @@ with the current project's dependencies loaded. Returns a property list."
 (defun ensime-rpc-get-type-by-name-at-point (name)
   (ensime-eval
    `(swank:type-by-name-at-point
-     ,name ,buffer-file-name ,(ensime-computed-point))))
+     ,name ,(ensime-standard-buffer-file-name) ,(ensime-computed-point))))
 
 (defun ensime-rpc-get-type-at-point ()
   (ensime-eval
-   `(swank:type-at-point ,buffer-file-name ,(ensime-computed-point))))
+   `(swank:type-at-point ,(ensime-standard-buffer-file-name) ,(ensime-computed-point))))
 
 (defun ensime-rpc-inspect-type-at-point ()
   (ensime-eval
-   `(swank:inspect-type-at-point ,buffer-file-name ,(ensime-computed-point))))
+   `(swank:inspect-type-at-point ,(ensime-standard-buffer-file-name) ,(ensime-computed-point))))
 
 (defun ensime-rpc-inspect-type-at-range (&optional range)
   (ensime-eval
-   `(swank:inspect-type-at-point ,buffer-file-name
+   `(swank:inspect-type-at-point ,(ensime-standard-buffer-file-name)
                                  ,(or range (ensime-computed-range)))))
 
 (defun ensime-rpc-inspect-type-by-id (id)
@@ -3195,7 +3234,7 @@ with the current project's dependencies loaded. Returns a property list."
   (ensime-eval `(swank:shutdown-server)))
 
 (defun ensime-rpc-symbol-designations (file start end requested-types continue)
-  (ensime-eval-async `(swank:symbol-designations ,file ,start ,end ,requested-types)
+  (ensime-eval-async `(swank:symbol-designations ,(ensime-standard-file-name-out file) ,start ,end ,requested-types)
 		     continue))
 
 
@@ -3953,7 +3992,7 @@ It should be used for \"background\" messages such as argument lists."
   (plist-get member :pos))
 
 (defun ensime-pos-file (pos)
-  (plist-get pos :file))
+  (ensime-standard-file-name-in (plist-get pos :file)))
 
 (defun ensime-pos-offset (pos)
   (plist-get pos :offset))
@@ -3968,7 +4007,7 @@ It should be used for \"background\" messages such as argument lists."
        (integerp (ensime-pos-offset pos))))
 
 (defun ensime-note-file (note)
-  (plist-get note :file))
+  (ensime-standard-file-name-in (plist-get note :file)))
 
 (defun ensime-note-beg (note)
   (plist-get note :beg))

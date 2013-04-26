@@ -132,9 +132,9 @@
 
 (defun ensime-test-compile-java-proj (proj arguments)
   "Compile java sources of given temporary test project."
-  (let* ((root (plist-get proj :root-dir))
-	 (src-files (plist-get proj :src-files))
-	 (target (plist-get proj :target))
+  (let* ((root (ensime-standard-file-name-out (plist-get proj :root-dir)))
+	 (src-files (mapcar 'ensime-standard-file-name-out (plist-get proj :src-files)))
+	 (target (ensime-standard-file-name-out (plist-get proj :target)))
 	 (args (append
 		arguments
 		(list "-d" target)
