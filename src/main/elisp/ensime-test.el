@@ -92,7 +92,7 @@
 		  extra-config))
          (conf-file (ensime-create-file
                      (concat root-dir ".ensime")
-                     (format "%S" config)))
+                     (format "%S" (ensime-config-standard-out config))))
          (src-dir (file-name-as-directory (concat root-dir "src")))
 	 (target-dir (file-name-as-directory (concat root-dir "target"))))
 
@@ -1378,69 +1378,61 @@
 
     ((:connected connection-info))
 
-    ((:compiler-ready status)
-     (ensime-test-with-proj
-      (proj src-files)
-      (setq ensime-sem-high-faces ensime-sem-high-all-faces)
-      (ensime-sem-high-refresh-buffer)))
-
-    ((:region-sem-highlighted val)
-     (ensime-test-with-proj
-      (proj src-files)
-
-      ;; Don't check highlights immediately, as
-      ;; overlays might not be rendered yet... (it seems)
-      (ensime-typecheck-current-file)
-      ))
+    ((:compiler-ready status))
 
     ((:full-typecheck-finished val)
      (ensime-test-with-proj
       (proj src-files)
+
+      (setq ensime-sem-high-faces ensime-sem-high-all-faces)
+      (ensime-sem-high-refresh-buffer)
+    ))
+
+    ((:region-sem-highlighted val)
+     (ensime-test-with-proj
+      (proj src-files)
       (let ((check-sym-is (lambda (sym-type)
-			    (ensime-assert
-			     (memq
-			      sym-type
-			      (ensime-sem-high-sym-types-at-point))))
-			  ))
-	(goto-char (ensime-test-after-label "1"))
-	(funcall check-sym-is 'class)
+    			    (ensime-assert
+    			     (memq
+    			      sym-type
+    			      (ensime-sem-high-sym-types-at-point))))
+    			  ))
+    	(goto-char (ensime-test-after-label "1"))
+    	(funcall check-sym-is 'class)
 
-	(goto-char (ensime-test-before-label "2"))
-	(funcall check-sym-is 'var)
+    	(goto-char (ensime-test-before-label "2"))
+    	(funcall check-sym-is 'var)
 
-	(goto-char (ensime-test-after-label "3"))
-	(funcall check-sym-is 'var)
+    	(goto-char (ensime-test-after-label "3"))
+    	(funcall check-sym-is 'var)
 
-	(goto-char (ensime-test-after-label "4"))
-	(funcall check-sym-is 'var)
+    	(goto-char (ensime-test-after-label "4"))
+    	(funcall check-sym-is 'var)
 
-	(goto-char (ensime-test-after-label "5"))
-	(funcall check-sym-is 'functionCall)
+    	(goto-char (ensime-test-after-label "5"))
+    	(funcall check-sym-is 'functionCall)
 
-	(goto-char (ensime-test-before-label "6"))
-	(funcall check-sym-is 'val)
+    	(goto-char (ensime-test-before-label "6"))
+    	(funcall check-sym-is 'val)
 
-	(goto-char (ensime-test-before-label "7"))
-	(funcall check-sym-is 'valField)
+    	(goto-char (ensime-test-before-label "7"))
+    	(funcall check-sym-is 'valField)
 
-	(goto-char (ensime-test-before-label "8"))
-	(funcall check-sym-is 'varField)
+    	(goto-char (ensime-test-before-label "8"))
+    	(funcall check-sym-is 'varField)
 
-	(goto-char (ensime-test-after-label "9"))
-	(funcall check-sym-is 'class)
+    	(goto-char (ensime-test-after-label "9"))
+    	(funcall check-sym-is 'class)
 
-	(goto-char (ensime-test-after-label "10"))
-	(funcall check-sym-is 'object)
+    	(goto-char (ensime-test-after-label "10"))
+    	(funcall check-sym-is 'object)
 
-	(goto-char (ensime-test-after-label "11"))
-	(funcall check-sym-is 'object)
+    	(goto-char (ensime-test-after-label "11"))
+    	(funcall check-sym-is 'object)
 
-	(goto-char (ensime-test-after-label "12"))
-	(funcall check-sym-is 'class)
-	)
-
-      (setq ensime-sem-high-faces ensime-sem-high-default-faces)
-      (ensime-test-cleanup proj t)
+    	(goto-char (ensime-test-after-label "12"))
+    	(funcall check-sym-is 'class)
+    	)
       ))
     )
 

@@ -59,7 +59,7 @@
 (defun ensime-sem-high-apply-properties (info)
   "Use provided info to modify font-lock properties of identifiers
  in the program text."
-  (let ((file (plist-get info :file))
+  (let ((file (ensime-standard-file-name-in (plist-get info :file)))
 	(syms (plist-get info :syms)))
     (when-let (buf (find-buffer-visiting file))
       (with-current-buffer buf
