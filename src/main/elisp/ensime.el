@@ -2061,9 +2061,11 @@ This idiom is preferred over `lexical-let'."
                            (ensime-event-sig :indexer-ready t))
 
                           ((:scala-notes result)
+			   ;; AS: TODO: translate files!
                            (ensime-add-notes 'scala result))
 
                           ((:java-notes result)
+			   ;; AS: TODO: translate files!
                            (ensime-add-notes 'java result))
 
                           ((:clear-all-scala-notes)
@@ -2718,7 +2720,7 @@ any buffer visiting the given file."
 			    (insert (format "%s: %s : line %s"
 					    header msg line))
 			    (ensime-make-code-link p (point)
-						   file
+						   (ensime-standard-file-name-in file)
 						   (+ beg ensime-ch-fix)
 						   face)))
 			(insert "\n\n"))))
