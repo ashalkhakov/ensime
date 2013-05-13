@@ -165,7 +165,7 @@ with Java on Windows."
   (if (eq system-type 'cygwin)
       (replace-regexp-in-string "\n" ""
 				(shell-command-to-string (concat "cygpath -u '" path "'")))
-    (path)))
+    path))
 
 (defun ensime-standard-file-name-out (path)
   "Convert filename in Emacs-specific format to OS-standard filename.
@@ -179,7 +179,7 @@ with Java on Windows."
   (if (eq system-type 'cygwin)
       (replace-regexp-in-string "\n" ""
 				(shell-command-to-string (concat "cygpath -w '" path "'")))
-    (path)))
+    path))
 
 (defun ensime-standard-buffer-file-name ()
   "buffer-file-name that is native to the OS"
